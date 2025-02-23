@@ -18,5 +18,5 @@ It is written entirely in Javascript and is just embedded in some HTML.
 
 For example, [here](https://www.pentacom.jp/pentacom/bitfontmaker2/gallery/?id=14201) is one that I made with the exciting name of "FiveByFour" (its characters are based around an assumption of being five pixels tall and four pixels wide).
 
-<img src="image.png" style="max-width: 30em;" alt="Screenshot of the BitFontMaker2 entry for the font FiveByFour"/>
+<img src="https://nuclearsecrecy.github.io/bmfontconvert/images/tutorial1.jpg" style="max-width: 30em;" alt="Screenshot of the BitFontMaker2 entry for the font FiveByFour"/>
 
