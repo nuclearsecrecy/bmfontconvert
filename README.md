@@ -4,7 +4,7 @@ This tool is for converting fonts made with [BitFontMaker2](https://www.pentacom
 
 The "normal" way to do this kind of thing is to convert a TrueType font to a Bitmap Text font with [BMFont](https://www.angelcode.com/products/bmfont/). I find this really tedious when trying to make Bitmap Fonts for pixel-art games, because it is usually overkill and also requires a lot of fine-tuning for the final XML output. I am also using this for very small fonts like the ones created by BitFontMaker2.
 
-This tool was developed by [Alex Wellerstein](https://github.com/nuclearsecrecy) in 2024-2025 for his own use. You are free to use it however you want. I do not claim any copyright on it. It is provided for your use with no warranties, guarantees, etc. Use at your own risk. I have no connection to the creators of BitFontMaker2 or Phaser. It does not take full advantange of the Bitmap Text file format -- it just tries to get the job done. So each font is assumed to have a single page, using all channels, etc. 
+This tool was developed by [Alex Wellerstein](https://github.com/nuclearsecrecy) in 2024-2025 for his own use. You are free to use it however you want. I do not claim any copyright on it or its output. It is provided for your use with no warranties, guarantees, etc. Use at your own risk. I have no connection to the creators of BitFontMaker2, BMFont, or Phaser. 
 
 ## Using the tool
 
@@ -43,3 +43,11 @@ The code here is nothing fancy, and does not try to do any complicated "packing"
 ## Notes
 
 The tool only supports XML as the `FNT` format. Phaser apparently can support JSON fonts but it isn't clear to me how they should be structured so I have just ignored that (there is some remnants of a function that tries to convert the data to JSON, but I have not tested it at all in Phaser, and so it is disabled).
+
+The tool definitely does not take full advantange of the Bitmap Text file format -- it just tries to get the job done. So each font is assumed to have a single page, using all channels, etc. If you want something more complicated, use [BMFont](https://www.angelcode.com/products/bmfont/). 
+
+The tool is designed specifically for BitFontMaker2, and so shares its limitations (e.g., grid size of 16x16). In theory if you had a hacked version of BitFontMaker2 that could support larger grids, it you could tweak the settings and use other grid sizes. 
+
+BitFontMaker2 does not provide a "space" character, but does provide a "letterspace" property if you explicitly set one. If you do not set one, the code will try to infer it from the size of certain letters. 
+
+If you set a "monospace width" in either BitFontMaker2 or in the settings, it will override a number of other space settings so that it behaves like monospace does in BitFontMaker2. The tool ignores BitFontMaker2 settings relating to the base font, and the ascender/descender properties, which don't seem to do anything.
