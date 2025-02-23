@@ -18,36 +18,42 @@ It is written entirely in Javascript and is just embedded in some HTML.
 
 For example, [here](https://www.pentacom.jp/pentacom/bitfontmaker2/gallery/?id=14201) is one that I made with the exciting name of "FiveByFour" (its characters are based around an assumption of being five pixels tall and four pixels wide).
 
-<img src="https://nuclearsecrecy.github.io/bmfontconvert/src/images/tutorial1.jpg" style="max-width: 30em;" alt="Screenshot of the BitFontMaker2 entry for the font FiveByFour"/>
+<img src="https://nuclearsecrecy.github.io/bmfontconvert/example/tutorial1.jpg" style="max-width: 30em;" alt="Screenshot of the BitFontMaker2 entry for the font FiveByFour"/>
 
 \2. Click "Copy & Edit" to open it in the editor:
 
-<img src="https://nuclearsecrecy.github.io/bmfontconvert/src/images/tutorial2.jpg" style="max-width: 30em;" alt="Screenshot of the BitFontMaker2 editor"/>
+<img src="https://nuclearsecrecy.github.io/bmfontconvert/example/tutorial2.jpg" style="max-width: 30em;" alt="Screenshot of the BitFontMaker2 editor"/>
 
 \3. Click the the little icon that looks like a file with two triangles, which opens the "Data Import / Export" window:
 
-<img src="https://nuclearsecrecy.github.io/bmfontconvert/src/images/tutorial3.jpg" style="max-width: 30em;" alt="Screenshot of the BitFontMaker2 editor with the Data Import / Export tab open"/>
+<img src="https://nuclearsecrecy.github.io/bmfontconvert/example/tutorial2.5.jpg" style="max-width: 30em;" alt="Screenshot of the BitFontMaker2 editor showing the Data Import / Export button."/>
 
-The font data is all of that JSON code of numbers and symbols. Copy it to the clipboard (or download it and then copy it later).
+The font data is all of the JSON code of numbers and symbols that will pop up in the tab. Copy ALL OF IT, exactly as it is, to the clipboard (or download it and then copy it later).
+
+<img src="https://nuclearsecrecy.github.io/bmfontconvert/example/tutorial3.jpg" style="max-width: 30em;" alt="Screenshot of the BitFontMaker2 editor with the Data Import / Export tab open"/>
 
 \4. Now open the [bmfontconvert tool](https://nuclearsecrecy.github.io/bmfontconvert/src/) (this script), and paste that JSON code into the text area in the **INPUT** section, replacing all existing data there (some data is populated there by default just to illustrate how it works). If the JSON is valid a little green "JSON OK" should pop up at its upper right corner. If there is a problem, it will say "JSON invalid" -- try erasing the existing data and pasting it in again, or copying it again from the source.
+
+<img src="https://nuclearsecrecy.github.io/bmfontconvert/example/tutorial4.jpg" style="max-width: 30em;" alt="Screenshot of the INPUT section of the bmfontconvert tool with valid JSON data pasted into it"/>
 
 \5. You can probably ignore the **SETTINGS** section for now. The default settings seem generally good and anything that is missing-but-necessary will be inferred from the font itself. If the results are messed up in some way, you might tweak the settings then. You can hover your mouse over the names of each of them to learn what they are.
 
 \6. Click the **Convert** button in the tool. This will generate the <code>PNG</code> and <code>FNT</code> data and put them in the <b>OUTPUT</b> section. You can then download them manually (right-click and save, or copy-and-paste into a text file), or click the two **Download** buttons to save them to your computer.
 
-\7. If you are using Phaser, you will then need to import the Bitmap Font files into your project to use them. Refer to the Phaser documentation on [Bitmap Text](https://docs.phaser.io/phaser/concepts/gameobjects/bitmap-text).
+<img src="https://nuclearsecrecy.github.io/bmfontconvert/example/tutorial5.jpg" style="max-width: 30em;" alt="Screenshot of the OUTPUT section of the bmfontconvert tool, showing the CONVERT button and the generated PNG and FNT data"/>
 
-The code here is nothing fancy, and does not try to do any complicated "packing" algorithms for maximum efficiency: it will simply sort characters by their maximum height and then put them into the file line by line.
+\7. If you are using Phaser, you will then need to import the Bitmap Font files into your project to use them. Refer to the Phaser documentation on [Bitmap Text](https://docs.phaser.io/phaser/concepts/gameobjects/bitmap-text).
 
 ## Notes
 
-The tool only supports XML as the `FNT` format. Phaser apparently can support JSON fonts but it isn't clear to me how they should be structured so I have just ignored that (there is some remnants of a function that tries to convert the data to JSON, but I have not tested it at all in Phaser, and so it is disabled).
+* The PNG output is nothing fancy, and does not try to do any complicated "packing" algorithms for maximum efficiency. It will simply sort characters by their maximum height and then put them into the file line by line.
 
-The tool definitely does not take full advantange of the Bitmap Text file format -- it just tries to get the job done. So each font is assumed to have a single page, using all channels, etc. If you want something more complicated, use [BMFont](https://www.angelcode.com/products/bmfont/). 
+* The tool only supports XML as the `FNT` format. Phaser apparently can support JSON fonts but it isn't clear to me how they should be structured so I have just ignored that (there is some remnants of a function that tries to convert the data to JSON, but I have not tested it at all in Phaser, and so it is disabled).
 
-The tool is designed specifically for BitFontMaker2, and so shares its limitations (e.g., grid size of 16x16). In theory if you had a hacked version of BitFontMaker2 that could support larger grids, it you could tweak the settings and use other grid sizes. 
+* The tool definitely does not take full advantange of the Bitmap Text file format -- it just tries to get the job done. So each font is assumed to have a single page, using all channels, etc. If you want something more complicated, use [BMFont](https://www.angelcode.com/products/bmfont/). 
 
-BitFontMaker2 does not provide a "space" character, but does provide a "letterspace" property if you explicitly set one. If you do not set one, the code will try to infer it from the size of certain letters. 
+* The tool is designed specifically for BitFontMaker2, and so shares its limitations (e.g., grid size of 16x16). In theory if you had a hacked version of BitFontMaker2 that could support larger grids, it you could tweak the settings and use other grid sizes. 
 
-If you set a "monospace width" in either BitFontMaker2 or in the settings, it will override a number of other space settings so that it behaves like monospace does in BitFontMaker2. The tool ignores BitFontMaker2 settings relating to the base font, and the ascender/descender properties, which don't seem to do anything.
+* BitFontMaker2 does not provide a "space" character, but does provide a "letterspace" property if you explicitly set one. If you do not set one, the code will try to infer it from the size of certain letters. 
+
+* If you set a "monospace width" in either BitFontMaker2 or in the settings, it will override a number of other space settings so that it behaves like monospace does in BitFontMaker2. The tool ignores BitFontMaker2 settings relating to the base font, and the ascender/descender properties, which don't seem to do anything.

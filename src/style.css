@@ -57,7 +57,11 @@ hr {
 	top: -8pt;
 }
 #convert {
-	font-size: 14pt;
+	font-size: 18pt;
+	padding: 0.2em 2em;
+}
+#button {
+	text-align: center;
 }
 
 #img {
