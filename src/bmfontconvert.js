@@ -1,42 +1,47 @@
+
+/**
+ * Some global variables... it's bad practice but so sue me.
+ */
 var settings = {
-	space: 1,
-	name: "",
-	lineSpace: 1,
-	charSpace: 1,
-	maxWidth: 255,
-	spaceWidth: "",
-	lineHeight: "",
-	forecolor: 0,
-	backcolor: -1,
-	baselineX: 2,
-	baselineY: 11,
-	gridWidth: 16,
-	gridHeight: 16,
-	outfile: "",
-	format: "XML"
+	space: 1, //character padding (in output)
+	name: "", //font name
+	charSpace: 1, //space between each character (in font)
+	maxWidth: 255, //max width of PNG
+	spaceWidth: "", //width of the space character (space between words)
+	monoSpace: "", //if this is a number, will treat all characters as monospaced (and will ignore charSpace)
+	lineHeight: "", //height of a line of text
+	forecolor: 0, //color for font text in PNG 
+	backcolor: -1, //color for background of PNG (-1 = transparent)
+	baselineX: 2, //X location of font baseline in pixel data
+	baselineY: 11, //Y location of font baseline in pixel data
+	gridWidth: 16, //width of font grid in pixel data 
+	gridHeight: 16, //height of font grid in pixel data
+	outfile: "", //output file prefix 
+	format: "XML" //type of FNT file to generate (XML is only one actually supported)
 }
+
 var outfile;
 
 /**
  * Validates JSON input. Will also populate settings if possible.
  */
 function checkJSON() {
-	console.log("!");
 	var inp = document.getElementById("json").value;
 	try {
 		var data = JSON.parse(inp);
 	} catch (err) {
-		//alert("Error parsing JSON input: ",err);
 		document.getElementById("jsonStatus").innerHTML = "<span class='jsonBad'>JSON invalid</span>";
-		console.log(err,inp);
+		console.error("JSON failed to parse:",err,inp);
 		return false;
 	}
 	document.getElementById("jsonStatus").innerHTML = "<span class='jsonGood'>JSON OK</span>";
 	getSettings();
 	if(settings.name=="") document.getElementById("name").value = data.name;
 	if(settings.charSpace=="") document.getElementById("charSpace").value = data.letterspace/64|0;
+	if(settings.spaceWidth=="" || settings.spaceWidth==undefined) {
+		if(data.wordspacing) document.getElementById("charSpace").value = data.wordspacing;
+	}
 	getSettings();
-	console.log(data);
 	return data;
 }
 
@@ -80,7 +85,7 @@ function decodeCharacter(char) {
 		let width = max_x - min_x + 1;
 		let xoffset = -(min_x - +settings.baselineX);
 		let yoffset = max_y - +settings.baselineY;
-		let xadvance = width + +settings.charSpace - xoffset;
+		let xadvance = +settings.monoSpace?+settings.monoSpace:(width + +settings.charSpace - xoffset);
 		return {
 			p: p, //will be a pixel grid where 0 = empty and 1 = filled
 			min_x: min_x,
@@ -129,26 +134,22 @@ function process() {
 				charIdx[k] = chars.length-1;
 				if (c.height - c.yoffset > max_above_baseline) max_above_baseline = c.height - c.yoffset;
 				if (Math.abs(c.yoffset) > max_below_baseline) max_below_baseline = Math.abs(c.yoffset);
-				if (c.chr == 32 && (typeof settings.spaceWidth === 'undefined' || settings.spaceWidth=="")) {
-					settings.spaceWidth = +c.width;
-					settings.have_space = true;
-				}
-				if (c.chr == 65) a_height = c.height; //height of the capital letter A
-				if (!settings.have_space && (typeof settings.spaceWidth === 'undefined'||settings.spaceWidth=="") && [105, 108, 49].includes(c.chr)) settings.spaceWidth = +c.width;
 			}
 		}
 	};
-	// Check for space width if not explcitly defined
+	// Check for space width if not explicitly defined
 	if(settings.spaceWidth=="" || settings.spaceWidth=="undefined") {
-		if(charIdx[32]) { // " "
+		if(+settings.monoSpace) {
+			settings.spaceWidth = +settings.monoSpace;
+		} else if(charIdx[32]) { // " "
 			settings.spaceWidth = +chars[charIdx[32]].width;
 			settings.have_space = true;
 		} else if(charIdx[105]) {  //"i"
-			settings.spaceWidth = +chars[charIdx[105]].width;
+			settings.spaceWidth = +chars[charIdx[105]].width+1;
 		} else if(charIdx[108]) { // "l"
-			settings.spaceWidth = +chars[charIdx[108]].width;
+			settings.spaceWidth = +chars[charIdx[108]].width+1;
 		} else if(charIdx[49]) { // "1"
-			settings.spaceWidth = +chars[charIdx[49]].width;
+			settings.spaceWidth = +chars[charIdx[49]].width+1;
 		} else { //default
 			settings.spaceWidth = 3; 
 		}
@@ -204,7 +205,7 @@ function process() {
 
 		cur_x += +settings.space + +char.width;
 		if (cur_x > max_width) max_width = cur_x;
-		if (cur_y + line_height + +settings.lineSpace > max_height) max_height = cur_y + line_height + +settings.lineSpace;
+		if (cur_y + line_height + +settings.space > max_height) max_height = cur_y + line_height + +settings.space;
 	});
 
 	settings.max_above_baseline = max_above_baseline;
@@ -246,7 +247,7 @@ function make_xml(chars) {
 	<chars count="${chars.length}">
 `;
 	if(settings.spaceWidth!=undefined && settings.spaceWidth!="") {
-		out+=`\t\t<char id="32" x="0" y="0" width="1" height="1" xoffset="0" yoffset="${settings.max_above_baseline}" xadvance="${+settings.spaceWidth+1}" page="0" chnl="15" />\n`;
+		out+=`\t\t<char id="32" x="0" y="0" width="1" height="1" xoffset="0" yoffset="${settings.max_above_baseline}" xadvance="${+settings.spaceWidth}" page="0" chnl="15" />\n`;
 	}
 	for(i in chars) {
 		var char = chars[i];
@@ -302,7 +303,7 @@ function make_json(chars) {
 			}
 		}
 	}
-	if(settings.have_space) {
+	if(settings.spaceWidth!=undefined && settings.spaceWidth!="") {
 		out.font.chars.push({
 			id: 32,
 			x: 0,
@@ -311,7 +312,7 @@ function make_json(chars) {
 			height: 1,
 			xoffset: 0,
 			yoffset: settings.max_above_baseline,
-			xadvance: settings.spaceWidth+1,
+			xadvance: settings.spaceWidth,
 			yadvance: 0,
 			page: 0,
 			chnl: 15
