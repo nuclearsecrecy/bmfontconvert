@@ -1,0 +1,592 @@
+<html>
+<head>
+<title>BitFontMaker2 to BitmapFont converter</title>
+<style>
+
+body {
+	font-family: Arial;
+	padding: 1em;
+}
+textarea {
+	margin-top: 0.5em;
+	width: 100%;
+	height: 10em;
+}
+
+#xml {
+	white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: scroll;
+}
+
+canvas {
+	image-rendering: pixelated;
+	width: 100%;
+}
+
+.section {
+	border-bottom: 1px solid dimgray;
+	padding: 1em;
+}
+
+h2 {
+	font-size: 14pt;
+	margin-bottom: 0.5em;
+}
+
+hr {
+	border: none;
+	border-bottom: 1px solid dimgray;
+}
+
+.section_header {
+	font-size: 11pt;
+	color: dimgray;
+	margin-bottom: 0em;
+}
+
+#inputTextarea {
+	position: relative;
+}
+
+.jsonBad {
+	color: red;
+}
+.jsonGood {
+	color: green;
+}
+#jsonStatus {
+	font-size: 10pt;
+	position: absolute;
+	right: 0px;
+	top: -8pt;
+}
+#convert {
+	font-size: 14pt;
+}
+
+#img {
+	margin-top: 0.5em;
+	max-height: 255px;
+	overflow: scroll;
+	display: none;
+	border: 1px solid black;
+}
+.advanced {
+	margin-top: 0.2em;
+	font-size: 11pt;
+}
+
+.settings abbr {
+	width: 9em;
+	text-align: right;
+	display: inline-block;
+}
+.settings .advanced abbr {
+	width: 6em;
+}
+.settings input {
+	width: 8em;
+}
+
+.tutorial img {
+	max-width: 30em;
+}
+
+</style>
+<script>
+var settings = {
+	space: 1,
+	name: "",
+	lineSpace: 1,
+	charSpace: 1,
+	maxWidth: 255,
+	spaceWidth: "",
+	lineHeight: "",
+	forecolor: 0,
+	backcolor: -1,
+	baselineX: 2,
+	baselineY: 11,
+	gridWidth: 16,
+	gridHeight: 16,
+	outfile: "",
+	format: "XML"
+}
+var outfile;
+
+/**
+ * Validates JSON input. Will also populate settings if possible.
+ */
+function checkJSON() {
+	console.log("!");
+	var inp = document.getElementById("json").value;
+	try {
+		var data = JSON.parse(inp);
+	} catch (err) {
+		//alert("Error parsing JSON input: ",err);
+		document.getElementById("jsonStatus").innerHTML = "<span class='jsonBad'>JSON invalid</span>";
+		console.log(err,inp);
+		return false;
+	}
+	document.getElementById("jsonStatus").innerHTML = "<span class='jsonGood'>JSON OK</span>";
+	getSettings();
+	if(settings.name=="") document.getElementById("name").value = data.name;
+	if(settings.charSpace=="") document.getElementById("charSpace").value = data.letterspace/64|0;
+	getSettings();
+	console.log(data);
+	return data;
+}
+
+/**
+ * Retrieves settings from input.
+ */
+function getSettings() {
+	for(var i in Object.keys(settings)) {
+		var k = Object.keys(settings)[i];
+		if(document.getElementById(k)) {
+			settings[k] = document.getElementById(k).value;
+		}
+	}
+}
+
+/**
+ * Decodes a given character. The format used by BitFontMaker2 is that each item in the array
+ * is encoded in some funky bitwise way. 
+ */
+function decodeCharacter(char) {
+	let max_x = -1;
+	let min_x = -1;
+	let max_y = -1;
+	let min_y = -1;
+	let p = [];
+	for (let y = 0; y < settings.gridHeight; y++) {
+		if (!p[y]) p[y] = [];
+		for (let x = 0; x < settings.gridWidth; x++) {
+			p[y][x] = 0;
+			if (char[y] & (1 << x)) { // converting from bitwise operator
+				p[y][x] = 1;
+				if (min_x == -1 || x < min_x) min_x = x;
+				if (min_y == -1 || y < min_y) min_y = y;
+				if (max_x == -1 || x > max_x) max_x = x;
+				if (max_y == -1 || y > max_y) max_y = y;
+			}
+		}
+	}
+	if (min_x !== -1) {
+		let height = max_y - min_y + 1;
+		let width = max_x - min_x + 1;
+		let xoffset = -(min_x - +settings.baselineX);
+		let yoffset = max_y - +settings.baselineY;
+		let xadvance = width + +settings.charSpace - xoffset;
+		return {
+			p: p, //will be a pixel grid where 0 = empty and 1 = filled
+			min_x: min_x,
+			max_x: max_x,
+			min_y: min_y,
+			max_y: max_y,
+			height: height,
+			width: width,
+			xoffset: -xoffset,
+			yoffset: yoffset,
+			xadvance: xadvance
+		};
+	}
+	//failed for some reason
+	return false;
+}
+
+/**
+ * Does the actual conversion work of JSON to PNG and XML.
+ */
+function process() {
+	data  = checkJSON();
+	if(!data) {
+		alert("Could not convert font: JSON is invalid.");
+		return;
+	}
+
+	//keeps track of how high above or below baseline we go
+	let max_above_baseline = 0;
+	let max_below_baseline = 0;
+
+	//keep track of whether we have an actual space (32) character -- if not, we will infer one
+	settings.have_space = false;
+
+	// holds characters as array and index
+	let chars = [];
+	let charIdx = {};
+
+	for(var i in Object.keys(data)) {
+		var k = Object.keys(data)[i];
+		if (!isNaN(Number(k))) {
+			var c = decodeCharacter(data[k]);
+			if(c) {
+				c.chr = k;
+				chars.push(c);
+				charIdx[k] = chars.length-1;
+				if (c.height - c.yoffset > max_above_baseline) max_above_baseline = c.height - c.yoffset;
+				if (Math.abs(c.yoffset) > max_below_baseline) max_below_baseline = Math.abs(c.yoffset);
+				if (c.chr == 32 && (typeof settings.spaceWidth === 'undefined' || settings.spaceWidth=="")) {
+					settings.spaceWidth = +c.width;
+					settings.have_space = true;
+				}
+				if (c.chr == 65) a_height = c.height; //height of the capital letter A
+				if (!settings.have_space && (typeof settings.spaceWidth === 'undefined'||settings.spaceWidth=="") && [105, 108, 49].includes(c.chr)) settings.spaceWidth = +c.width;
+			}
+		}
+	};
+	// Check for space width if not explcitly defined
+	if(settings.spaceWidth=="" || settings.spaceWidth=="undefined") {
+		if(charIdx[32]) { // " "
+			settings.spaceWidth = +chars[charIdx[32]].width;
+			settings.have_space = true;
+		} else if(charIdx[105]) {  //"i"
+			settings.spaceWidth = +chars[charIdx[105]].width;
+		} else if(charIdx[108]) { // "l"
+			settings.spaceWidth = +chars[charIdx[108]].width;
+		} else if(charIdx[49]) { // "1"
+			settings.spaceWidth = +chars[charIdx[49]].width;
+		} else { //default
+			settings.spaceWidth = 3; 
+		}
+	}
+
+
+	//deduce lineHeight	
+	if(typeof settings.lineHeight == "undefined" || settings.lineHeight=="") {
+		var a_height = undefined;
+		for(var i = 65; i<=90;i++) {
+			if(a_height==undefined && charIdx[i]) a_height = +chars[charIdx[i]].height;
+		}
+		if(a_height==undefined) {
+			for(var i = 48; i<=57;i++) {
+				if(a_height==undefined && charIdx[i]) a_height = +chars[charIdx[i]].height;
+			}
+		}
+		if(a_height==undefined) a_height = (+max_above_baseline);
+		settings.lineHeight = a_height+max_below_baseline-1;
+	}
+
+	// Sort by height and then character (for png)
+	chars.sort((a, b) => {
+		if(a.height > b.height) {
+			return -1;
+		} else if (a.height<b.height) {
+			return 1;
+		} else if (a.chr>b.chr) {
+			return 1;
+		} else {
+			return -1;
+		}
+	});
+
+	// calculate dimensions and locations for PNG
+	let cur_x = 1;
+	let cur_y = 0;
+	let line_height = 0;
+	let max_height = 0;
+	let max_width = 0;
+
+	chars.forEach((char, k) => {
+		if (cur_x + (+settings.space) + char.width > (+settings.maxWidth)) {
+			cur_x = 0;
+			cur_y += line_height + (+settings.space);
+			line_height = char.height;
+		}
+		if (char.height > line_height) line_height = +char.height;
+		chars[k].output_x = (+cur_x);
+		chars[k].output_y = (+cur_y);
+		// recalculate true yoffset
+		chars[k].yoffset = (max_above_baseline - char.height) + char.yoffset - 1;
+
+		cur_x += +settings.space + +char.width;
+		if (cur_x > max_width) max_width = cur_x;
+		if (cur_y + line_height + +settings.lineSpace > max_height) max_height = cur_y + line_height + +settings.lineSpace;
+	});
+
+	settings.max_above_baseline = max_above_baseline;
+
+	outfile = settings.outfile?settings.outfile:settings.name.replaceAll(" ","_").replaceAll(".","_");
+
+	if(settings.format=="XML") {
+		var fnt = make_xml(chars);
+	} else if(settings.format=="JSON") {
+		var fnt = make_json(chars);
+	}
+	document.getElementById("fnt").innerHTML = fnt;	
+	settings.max_width = max_width;
+	settings.max_height = max_height;
+
+	var img = make_img(chars);
+
+	document.getElementById("download_png").disabled = false;
+	document.getElementById("download_fnt").disabled = false;
+	document.getElementById("download_png").innerHTML = "Download PNG file ("+outfile+".png)";
+	document.getElementById("download_fnt").innerHTML = "Download FNT file ("+outfile+".fnt)";
+
+}
+
+/**
+ * Generates XML from character data.
+ * 
+ * XML file format is described here: https://www.angelcode.com/products/bmfont/doc/file_format.html
+ */
+function make_xml(chars) {
+	chars.sort((a,b)=>{ return a.chr<b.chr?-1:1})	
+	var out = `<?xml version="1.0"?>
+<font>
+	<info face="${settings.name}" size="${settings.max_above_baseline}" bold="0" italic="0" charset="" unicode="1" stretchH="100" smooth="0" aa="1" padding="0,0,0,0" spacing="1,1" outline="0"/>
+	<common lineHeight="${+settings.lineHeight}" base="${settings.max_above_baseline}" scaleW="256" scaleH="256" pages="1" packed="0" alphaChnl="0" redChnl="3" greenChnl="3" blueChnl="3"/>
+	<pages>
+		<page id="0" file="${outfile}.png" />
+	</pages>
+	<chars count="${chars.length}">
+`;
+	if(settings.spaceWidth!=undefined && settings.spaceWidth!="") {
+		out+=`\t\t<char id="32" x="0" y="0" width="1" height="1" xoffset="0" yoffset="${settings.max_above_baseline}" xadvance="${+settings.spaceWidth+1}" page="0" chnl="15" />\n`;
+	}
+	for(i in chars) {
+		var char = chars[i];
+		out+=`\t\t<char id="${char["chr"]}" x="${char["output_x"]}" y="${char["output_y"]}" width="${char["width"]}" height="${char["height"]}" xoffset="${char["xoffset"]}" yoffset="${char["yoffset"]}" xadvance="${char["xadvance"]}" page="0" chnl="15" />\n`;
+	}
+	out+=`\t</chars>\n</font>`;
+	return out;
+}
+
+/**
+ * Creates a JSON output from the characters.
+ * Not used.
+ */
+function make_json(chars) {
+	chars.sort((a,b)=>{ return a.chr<b.chr?-1:1})	
+	var out = {
+		font: {
+			info: {
+				face: settings.name,
+				size: settings.max_above_baseline,
+				bold: 0,
+				italic: 0,
+				charset: "",
+				unicode: 1,
+				stretchH: 100,
+				smooth: 0,
+				aa: 1,
+				padding: [0,0,0,0],
+				spacing: [1,1],
+				outline: 0,
+			},
+			common: {
+				lineHeight: settings.lineHeight,
+				base: 10,
+				scaleW: 256,
+				scaleH: 256,
+				pages: 1,
+				packed: 0,
+				alphaChnl: 0,
+				redChnl: 3,
+				greenChnl: 3,
+				blueChnl: 3,
+			},
+			pages: {
+				page: {
+					id: 0,
+					file: outfile+".png"
+				}
+			},
+			chars: {
+				count: chars.length,
+				char: []
+			}
+		}
+	}
+	if(settings.have_space) {
+		out.font.chars.push({
+			id: 32,
+			x: 0,
+			y: 0,
+			width: 1,
+			height: 1,
+			xoffset: 0,
+			yoffset: settings.max_above_baseline,
+			xadvance: settings.spaceWidth+1,
+			yadvance: 0,
+			page: 0,
+			chnl: 15
+		})
+	}
+	for(var i in chars) {
+		var char = chars[i];
+		out.font.chars.char.push({
+			id: char["chr"],
+			x: char["output_x"],
+			y: char["output_y"],
+			width: char["width"],
+			height: char["height"],
+			xoffset: char["xoffset"],
+			yoffset: char["yoffset"],
+			xadvance: char["xadvance"],
+			yadvance: char["yadvance"],
+			page: 0,
+			chnl: 15
+		})
+	}
+	return JSON.stringify(out,undefined,"\t");
+}
+
+
+/**
+ * Uses the Canvas renderer to draw the image.
+ */
+function make_img(chars) {
+	const canvas = document.createElement('canvas');
+	canvas.width = settings.max_width;
+	canvas.height = settings.max_height;
+	canvas.id = "canvas";
+	const ctx = canvas.getContext("2d");
+	if(settings.backcolor!=-1) {
+		ctx.fillStyle = settings.backcolor;
+		ctx.fillRect(0,0,settings.max_width,settings.max_height);
+	}
+	ctx.fillStyle = settings.forecolor;
+
+	for(var i in chars) {
+		var char = chars[i];
+		for(var x = char["min_x"]; x<=char["max_x"]; x++) {
+			for(y = char["min_y"]; y<=char["max_y"]; y++) {
+				if(char["p"][y][x]) {
+					ctx.fillRect(char["output_x"]+x-char["min_x"],char["output_y"]+y-char["min_y"],1,1);
+				}
+			}
+		}
+	}
+	document.getElementById("img").innerHTML = "";
+	document.getElementById("img").append(canvas);
+	document.getElementById("img").style.display = "block";
+}
+
+/**
+ * Downloads the .fnt file.
+ */
+function download_fnt() {
+	download(outfile+".fnt","data:text/plain;charset=utf-8,"+encodeURIComponent(document.getElementById("fnt").value));
+}
+
+/**
+ * Downloads the .png file.
+ */
+function download_png() {
+	const canvas = document.getElementById("canvas");
+	const img =  canvas.toDataURL('image/png');
+	download(outfile+".png",img);
+}
+
+
+/**
+ * Function that tries to force the browser to download file data. May or may not work on your browser.
+ */
+function download(filename, data) {
+  var element = document.createElement('a');
+	  element.setAttribute('href', data);
+	  element.setAttribute('download', filename);
+  	element.style.display = 'none';
+  	document.body.appendChild(element);
+	  element.click();
+	  document.body.removeChild(element);
+}
+</script>
+</head>
+<body>
+<h1>BitFontMaker2 to Bitmap Text Font</h1>
+<h2>About this tool</h2>
+<p>
+	This tool is for converting fonts made with <a href="https://www.pentacom.jp/pentacom/bitfontmaker2/" target="_blank">BitFontMaker2</a> into the <code>FNT</code> and <code>PNG</code> files needed to use them as true <a href="https://docs.phaser.io/phaser/concepts/gameobjects/bitmap-text" target="_blank">Bitmap Text</a> font that can be used with things like the <a href="https://phaser.io/" target="_blank">Phaser</a> game engine. 
+</p>
+<p>
+	The "normal" way to do this kind of thing is to convert a TrueType font to a Bitmap Text font with <a href="https://www.angelcode.com/products/bmfont/" target="_blank">BMFont</a>. I find this really tedious when trying to make Bitmap Fonts for pixel games, because it is usually overkill and also requires a lot of fine-tuning for the final XML output. I am also using this for very small fonts like the ones created by bitfontmaker2.
+	</p>
+<p>
+	This tool was developed by <a href="https://github.com/nuclearsecrecy/" target="_blank">Alex Wellerstein</a> in 2024-2025 for his own use. You are free to use it however you want. I do not claim any copyright on it. It is provided for your use with no warranties, guarantees, etc. Use at your own risk. I have no connection to the creators of BitFontMaker2 or Phaser. It does <b>not</b> take full advantange of the file format -- it just tries to get the job done. So each font is assumed to have a single page, etc.
+</p>
+<hr>
+<h2>Instructions</h2>
+<details class="tutorial">
+	<summary>Click the arrow to show the tutorial/instructions.</summary>
+<p>
+	1. Create or open a copy of a font from the <a href="https://www.pentacom.jp/pentacom/bitfontmaker2" target="_blank">BitFontMaker2</a> website. For example, <a href="https://www.pentacom.jp/pentacom/bitfontmaker2/gallery/?id=14201" target="_blank">here</a> is one that I made with the exciting name of "FiveByFour" (its characters are based around an assumption of being five pixels tall and four pixels wide). 
+</p>
+<a href="images/tutorial1.jpg" target="_blank"><img src="images/tutorial1.jpg"/></a>	
+<p>
+	2. Click "Copy & Edit" to open it in the editor:
+</p>
+<a href="images/tutorial2.jpg" target="_blank"><img src="images/tutorial2.jpg"/></a>
+<p>
+	3. Click the the little icon that looks like a file with two triangles, which opens the "Data Import / Export" window:
+</p>
+<a href="images/tutorial3.jpg" target="_blank"><img src="images/tutorial3.jpg"/></a>
+<p>
+	The font data is all of that JSON code of numbers and symbols. Copy it to the clipboard (or download it and then copy it later).
+</p>
+<p>
+	4. Come back to THIS page, and paste that JSON code into the <b>INPUT</b> section below. The default settings should be adequate but you can tweak them if you have some reason to. (Hover over the name of each setting for information about what it does.)
+</p>
+<p>
+	5. You should probably just click the "<b>Convert</b>" button at this point. That will trigger the code which will create the <code>PNG</code> and <code>FNT</code> files in the <b>OUTPUT</b> section. You can then download them manually or click the two Download buttons to save them to your computer. If the output doesn't seem right, then you might take a look at the settings, but most of them are inferred from the pasted JSON and shouldn't need to be manually set.
+</p>
+<p>
+	6. If you are using Phaser, you will then need to import the Bitmap Font files into your project to use them. Refer to the Phaser documentation on <a href="https://docs.phaser.io/phaser/concepts/gameobjects/bitmap-text"> target="_blank">Bitmap Text</a> for that.
+</p>
+<p>
+	The code here is nothing fancy, and does not try to do any complicated "packing" algorithms for maximum efficiency: it will simply sort characters by their maximum height and then put them into the file line by line.
+</p>
+</details>
+<hr>
+<h2>INPUT</h2>
+<div class="section_header">Paste BitFontMaker2 JSON code here: </div>
+<div id="inputTextarea">
+	<div id="jsonStatus"></div>
+	<textarea id="json" onchange="checkJSON()" onkeyup="checkJSON()">{"33":[0,0,0,0,0,0,4,4,4,4,0,4,0,0,0,0],"34":[0,0,0,0,0,0,0,20,20,0,0,0,0,0,0,0],"35":[0,0,0,0,0,0,0,40,124,40,124,40,0,0,0,0],"36":[0,0,0,0,0,0,16,56,4,24,32,28,16,0,0,0],"37":[0,0,0,0,0,0,0,0,36,16,8,36,0,0,0,0],"38":[0,0,0,0,0,0,0,16,40,24,20,44,0,0,0,0],"39":[0,0,0,0,0,0,0,4,4,0,0,0,0,0,0,0],"40":[0,0,0,0,0,0,0,8,4,4,4,4,8,0,0,0],"41":[0,0,0,0,0,0,0,4,8,8,8,8,4,0,0,0],"42":[0,0,0,0,0,0,0,20,8,20,0,0,0,0,0,0],"43":[0,0,0,0,0,0,0,0,8,28,8,0,0,0,0,0],"44":[0,0,0,0,0,0,0,0,0,0,0,4,4,0,0,0],"45":[0,0,0,0,0,0,0,0,0,28,0,0,0,0,0,0],"46":[0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,0],"47":[0,0,0,0,0,0,0,0,16,16,8,4,4,0,0,0],"48":[0,0,0,0,0,0,0,24,36,36,36,24,0,0,0,0],"49":[0,0,0,0,0,0,0,8,12,8,8,8,0,0,0,0],"50":[0,0,0,0,0,0,0,24,36,16,8,60,0,0,0,0],"51":[0,0,0,0,0,0,0,28,32,24,32,28,0,0,0,0],"52":[0,0,0,0,0,0,0,16,24,20,60,16,0,0,0,0],"53":[0,0,0,0,0,0,0,60,4,28,32,28,0,0,0,0],"54":[0,0,0,0,0,0,0,24,4,28,36,24,0,0,0,0],"55":[0,0,0,0,0,0,0,60,32,16,8,8,0,0,0,0],"56":[0,0,0,0,0,0,0,24,36,24,36,24,0,0,0,0],"57":[0,0,0,0,0,0,0,24,36,56,32,24,0,0,0,0],"58":[0,0,0,0,0,0,0,0,4,0,4,0,0,0,0,0],"59":[0,0,0,0,0,0,0,0,0,4,0,4,4,0,0,0],"60":[0,0,0,0,0,0,0,16,8,4,8,16,0,0,0,0],"61":[0,0,0,0,0,0,0,0,28,0,28,0,0,0,0,0],"62":[0,0,0,0,0,0,0,4,8,16,8,4,0,0,0,0],"63":[0,0,0,0,0,0,0,12,16,8,0,8,0,0,0,0],"64":[0,0,0,0,0,0,0,112,136,356,340,228,8,240,0,0],"65":[0,0,0,0,0,0,0,24,36,60,36,36,0,0,0,0],"66":[0,0,0,0,0,0,0,28,36,28,36,28,0,0,0,0],"67":[0,0,0,0,0,0,0,56,4,4,4,56,0,0,0,0],"68":[0,0,0,0,0,0,0,28,36,36,36,28,0,0,0,0],"69":[0,0,0,0,0,0,0,60,4,28,4,60,0,0,0,0],"70":[0,0,0,0,0,0,0,60,4,28,4,4,0,0,0,0],"71":[0,0,0,0,0,0,0,56,4,52,36,56,0,0,0,0],"72":[0,0,0,0,0,0,0,36,36,60,36,36,0,0,0,0],"73":[0,0,0,0,0,0,0,28,8,8,8,28,0,0,0,0],"74":[0,0,0,0,0,0,0,56,32,32,36,24,0,0,0,0],"75":[0,0,0,0,0,0,0,36,20,12,20,36,0,0,0,0],"76":[0,0,0,0,0,0,0,4,4,4,4,28,0,0,0,0],"77":[0,0,0,0,0,0,0,68,108,84,68,68,0,0,0,0],"78":[0,0,0,0,0,0,0,36,44,52,36,36,0,0,0,0],"79":[0,0,0,0,0,0,0,24,36,36,36,24,0,0,0,0],"80":[0,0,0,0,0,0,0,28,36,28,4,4,0,0,0,0],"81":[0,0,0,0,0,0,0,24,36,36,36,24,32,0,0,0],"82":[0,0,0,0,0,0,0,28,36,28,36,36,0,0,0,0],"83":[0,0,0,0,0,0,0,56,4,24,32,28,0,0,0,0],"84":[0,0,0,0,0,0,0,28,8,8,8,8,0,0,0,0],"85":[0,0,0,0,0,0,0,36,36,36,36,56,0,0,0,0],"86":[0,0,0,0,0,0,0,68,68,40,40,16,0,0,0,0],"87":[0,0,0,0,0,0,0,68,68,84,84,40,0,0,0,0],"88":[0,0,0,0,0,0,0,36,36,24,36,36,0,0,0,0],"89":[0,0,0,0,0,0,0,36,36,56,32,28,0,0,0,0],"90":[0,0,0,0,0,0,0,60,32,24,4,60,0,0,0,0],"91":[0,0,0,0,0,0,0,12,4,4,4,4,12,0,0,0],"92":[0,0,0,0,0,0,0,0,4,4,8,16,16,0,0,0],"93":[0,0,0,0,0,0,0,12,8,8,8,8,12,0,0,0],"96":[0,0,0,0,0,0,0,4,8,0,0,0,0,0,0,0],"97":[0,0,0,0,0,0,0,0,56,36,36,56,0,0,0,0],"98":[0,0,0,0,0,0,4,4,28,36,36,28,0,0,0,0],"99":[0,0,0,0,0,0,0,0,24,4,4,24,0,0,0,0],"100":[0,0,0,0,0,0,32,32,56,36,36,56,0,0,0,0],"101":[0,0,0,0,0,0,0,0,24,20,12,24,0,0,0,0],"102":[0,0,0,0,0,0,16,8,8,28,8,8,0,0,0,0],"103":[0,0,0,0,0,0,0,0,56,36,56,32,24,0,0,0],"104":[0,0,0,0,0,0,4,4,28,36,36,36,0,0,0,0],"105":[0,0,0,0,0,0,0,4,0,4,4,4,0,0,0,0],"106":[0,0,0,0,0,0,0,8,0,8,8,8,4,0,0,0],"107":[0,0,0,0,0,0,4,4,20,12,20,20,0,0,0,0],"108":[0,0,0,0,0,0,4,4,4,4,4,4,0,0,0,0],"109":[0,0,0,0,0,0,0,0,60,84,84,84,0,0,0,0],"110":[0,0,0,0,0,0,0,0,28,36,36,36,0,0,0,0],"111":[0,0,0,0,0,0,0,0,24,36,36,24,0,0,0,0],"112":[0,0,0,0,0,0,0,0,28,36,36,28,4,0,0,0],"113":[0,0,0,0,0,0,0,0,56,36,36,56,32,0,0,0],"114":[0,0,0,0,0,0,0,0,20,12,4,4,0,0,0,0],"115":[0,0,0,0,0,0,0,0,56,12,48,28,0,0,0,0],"116":[0,0,0,0,0,0,8,8,28,8,8,8,0,0,0,0],"117":[0,0,0,0,0,0,0,0,36,36,36,56,0,0,0,0],"118":[0,0,0,0,0,0,0,0,68,68,40,16,0,0,0,0],"119":[0,0,0,0,0,0,0,0,68,84,84,40,0,0,0,0],"120":[0,0,0,0,0,0,0,0,36,24,24,36,0,0,0,0],"121":[0,0,0,0,0,0,0,0,36,36,56,32,24,0,0,0],"122":[0,0,0,0,0,0,0,0,60,16,8,60,0,0,0,0],"181":[0,0,0,0,0,0,0,0,36,36,36,124,4,4,0,0],"name":"FiveByFour","copy":"OriginalbyNucleon","letterspace":"128","basefont_size":"512","basefont_left":"62","basefont_top":"0","basefont":"Arial","basefont2":"","ascender":"0","descender":"0","linegap":"0"}</textarea>	
+</div>
+<h2>SETTINGS</h2>
+<p>
+<details class="settings">
+<summary>Font settings (will be inferred if left blank):</summary>
+<ul>
+	<li><abbr title="The name that will be used for the font and its files.">Font name:</abbr> <input type="text" id="name" value=""></li>
+	<li><abbr title="The spacing between each character of the font.">Character spacing:</abbr> <input type="text" id="charSpace" value=""></li>
+	<li><abbr title="The height of each line of the font. Should have space below for next line.">Line height:</abbr> <input type="text" id="lineHeight" value=""></li>
+	<li><abbr title="The width of the space character. If blank, will be inferred.">Space width:</abbr> <input type="text" id="spaceWidth" value=""></li>
+	<li><details class="advanced settings">
+	<summary>Advanced settings</summary>
+		<br><em>Note: You probably don't want to change these if you are using BitFontMaker2.</em>
+		<ul>
+			<li><abbr title="The height of the pixel grid for the font characters. Is 16 for BitFontMaker2 files.">Grid height:</abbr> <input type="text" id="gridHeight" value="16"></li>
+			<li><abbr title="The width of the pixel grid for the font characters. Is 16 for BitFontMaker2 files.">Grid width:</abbr> <input type="text" id="gridWidth" value="16"></li>
+			<li><abbr title="The x coordinate of the baseline (bottom left of characters). It is 2 for BitFontMaker2.">Baseline X:</abbr> <input type="text" id="baselineX" value="2"></li>
+			<li><abbr title="The x coordinate of the baseline (bottom left of characters). It is 11 for BitFontMaker2.">Grid width:</abbr> <input type="text" id="baselineY" value="11"></li>
+		</ul>
+	</details>
+	</li>
+</ul>
+</details>
+</p>
+<details class="settings">
+<summary>Output settings:</summary>
+<ul>
+	<li><abbr title="The space to add between each character in the output file (in pixels)">Character padding:</abbr> <input type="text" id="space" value="1"></li>
+	<li><abbr title="The maximum width of the output PNG file, in pixels (height will be determined by characters in font).">Max PNG width:</abbr> <input type="text" id="maxWidth" value="255"></li>
+	<li><abbr title="The foreground color for the PNG file. Can be any valid CSS color.">Foreground color:</abbr> <input type="text" id="forecolor" value="#000000"></li>	
+	<li><abbr title="The background color for the PNG file. Can be any valid CSS color, or -1 for transparent.">Background color:</abbr> <input type="text" id="backcolor" value="-1"></li>	
+	<li><abbr title="The file name for the PNG and FNT files. If blank, will be inferred from name.">File name prefix:</abbr> <input type="text" id="outfile" value=""></li>
+</ul>
+</details>
+</p>
+<button id="convert" onclick="process()">Convert</button>
+
+<h2>OUTPUT</h2>
+PNG: <button id="download_png" disabled onclick="download_png()">Download PNG file</button>
+<div id="img"></div> <br>
+FNT: <button id="download_fnt" disabled  onclick="download_fnt()">Download FNT file</button><br>
+<textarea id="fnt"></textarea>
+
+</body>
+</html>
