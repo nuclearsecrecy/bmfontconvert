@@ -20,3 +20,26 @@ For example, [here](https://www.pentacom.jp/pentacom/bitfontmaker2/gallery/?id=1
 
 <img src="https://nuclearsecrecy.github.io/bmfontconvert/src/images/tutorial1.jpg" style="max-width: 30em;" alt="Screenshot of the BitFontMaker2 entry for the font FiveByFour"/>
 
+2. Click "Copy & Edit" to open it in the editor:
+
+<img src="https://nuclearsecrecy.github.io/bmfontconvert/src/images/tutorial2.jpg" style="max-width: 30em;" alt="Screenshot of the BitFontMaker2 editor"/>
+
+3. Click the the little icon that looks like a file with two triangles, which opens the "Data Import / Export" window:
+
+<img src="https://nuclearsecrecy.github.io/bmfontconvert/src/images/tutorial3.jpg" style="max-width: 30em;" alt="Screenshot of the BitFontMaker2 editor with the Data Import / Export tab open"/>
+
+The font data is all of that JSON code of numbers and symbols. Copy it to the clipboard (or download it and then copy it later).
+
+4. Now open the [bomfontconvert tool](https://nuclearsecrecy.github.io/bmfontconvert/src/), and paste that JSON code into the text area in the **INPUT** section, replacing all existing data there (some data is populated there by default just to illustrate how it works). If the JSON is valid a little green "JSON OK" should pop up at its upper right corner. If there is a problem, it will say "JSON invalid" -- try erasing the existing data and pasting it in again, or copying it again from the source.
+
+5. You can probably ignore the **SETTINGS** section for now. The default settings seem generally good and anything that is missing-but-necessary will be inferred from the font itself. If the results are messed up in some way, you might tweak the settings then. You can hover your mouse over the names of each of them to learn what they are.
+
+6. Click the **Convert** button in the tool. This will generate the <code>PNG</code> and <code>FNT</code> data and put them in the <b>OUTPUT</b> section. You can then download them manually (right-click and save, or copy-and-paste into a text file), or click the two **Download** buttons to save them to your computer.
+
+7. If you are using Phaser, you will then need to import the Bitmap Font files into your project to use them. Refer to the Phaser documentation on [Bitmap Text](https://docs.phaser.io/phaser/concepts/gameobjects/bitmap-text).
+
+The code here is nothing fancy, and does not try to do any complicated "packing" algorithms for maximum efficiency: it will simply sort characters by their maximum height and then put them into the file line by line.
+
+## Notes
+
+The tool only supports XML as the `FNT` format. Phaser apparently can support JSON fonts but it isn't clear to me how they should be structured so I have just ignored that (there is some remnants of a function that tries to convert the data to JSON, but I have not tested it at all in Phaser, and so it is disabled).
