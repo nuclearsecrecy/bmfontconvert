@@ -16,38 +16,9 @@
 <p>
 	This tool was developed by <a href="https://github.com/nuclearsecrecy/" target="_blank">Alex Wellerstein</a> in 2024-2025 for his own use. You are free to use it however you want. I do not claim any copyright on it. It is provided for your use with no warranties, guarantees, etc. Use at your own risk. I have no connection to the creators of BitFontMaker2 or Phaser. It does <b>not</b> take full advantange of the file format -- it just tries to get the job done. So each font is assumed to have a single page, etc.
 </p>
-<hr>
-<h2>Instructions</h2>
-<details class="tutorial">
-	<summary>Click the arrow to show the tutorial/instructions.</summary>
 <p>
-	1. Create or open a copy of a font from the <a href="https://www.pentacom.jp/pentacom/bitfontmaker2" target="_blank">BitFontMaker2</a> website. For example, <a href="https://www.pentacom.jp/pentacom/bitfontmaker2/gallery/?id=14201" target="_blank">here</a> is one that I made with the exciting name of "FiveByFour" (its characters are based around an assumption of being five pixels tall and four pixels wide). 
+	For detailed instructions on how to use this, please <a href="https://nuclearsecrecy.github.io/bmfontconvert/">see this page</a>.
 </p>
-<a href="images/tutorial1.jpg" target="_blank"><img src="images/tutorial1.jpg"/></a>	
-<p>
-	2. Click "Copy & Edit" to open it in the editor:
-</p>
-<a href="images/tutorial2.jpg" target="_blank"><img src="images/tutorial2.jpg"/></a>
-<p>
-	3. Click the the little icon that looks like a file with two triangles, which opens the "Data Import / Export" window:
-</p>
-<a href="images/tutorial3.jpg" target="_blank"><img src="images/tutorial3.jpg"/></a>
-<p>
-	The font data is all of that JSON code of numbers and symbols. Copy it to the clipboard (or download it and then copy it later).
-</p>
-<p>
-	4. Come back to THIS page, and paste that JSON code into the <b>INPUT</b> section below. The default settings should be adequate but you can tweak them if you have some reason to. (Hover over the name of each setting for information about what it does.)
-</p>
-<p>
-	5. You should probably just click the "<b>Convert</b>" button at this point. That will trigger the code which will create the <code>PNG</code> and <code>FNT</code> files in the <b>OUTPUT</b> section. You can then download them manually or click the two Download buttons to save them to your computer. If the output doesn't seem right, then you might take a look at the settings, but most of them are inferred from the pasted JSON and shouldn't need to be manually set.
-</p>
-<p>
-	6. If you are using Phaser, you will then need to import the Bitmap Font files into your project to use them. Refer to the Phaser documentation on <a href="https://docs.phaser.io/phaser/concepts/gameobjects/bitmap-text"> target="_blank">Bitmap Text</a> for that.
-</p>
-<p>
-	The code here is nothing fancy, and does not try to do any complicated "packing" algorithms for maximum efficiency: it will simply sort characters by their maximum height and then put them into the file line by line.
-</p>
-</details>
 <hr>
 <h2>INPUT</h2>
 <div class="section_header">Paste BitFontMaker2 JSON code here: </div>
